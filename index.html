@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>MN 72-Hour Hold Calculator</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f9f9f9;
+      margin: 0;
+      padding: 2rem;
+      line-height: 1.6;
+    }
+
+    header {
+      background-color: #00467f;
+      color: white;
+      padding: 1rem;
+      text-align: center;
+    }
+
+    main {
+      background: #fff;
+      padding: 2rem;
+      max-width: 800px;
+      margin: 2rem auto;
+      border-radius: 8px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    }
+
+    h1, h2 {
+      color: #00467f;
+    }
+
+    label {
+      display: block;
+      margin-top: 1rem;
+      font-weight: bold;
+    }
+
+    input {
+      padding: 0.5rem;
+      margin-top: 0.5rem;
+      width: 100%;
+      max-width: 300px;
+    }
+
+    button {
+      margin-top: 1rem;
+      padding: 0.6rem 1rem;
+      font-weight: bold;
+      background-color: #00467f;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+
+    .result {
+      margin-top: 2rem;
+      background: #f1f8ff;
+      border-left: 4px solid #00467f;
+      padding: 1rem;
+    }
+
+    ul {
+      padding-left: 1.2rem;
+    }
+
+    .example {
+      background-color: #f1f8ff;
+      border-left: 4px solid #00467f;
+      padding: 1rem;
+      margin: 1rem 0;
+    }
+
+    small {
+      color: #555;
+    }
+
+    details {
+      margin-top: 1rem;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>MN 72-Hour Psychiatric Hold</h1>
+  </header>
+
+  <main>
+    <p>This tool explains and calculates the end time of a <strong>72-hour emergency psychiatric hold in Minnesota</strong> under <a href="https://www.revisor.mn.gov/statutes/cite/253B.051" target="_blank">Statute §253B.051</a>. The clock runs hour-by-hour on business days only—<strong>weekends and legal holidays are excluded</strong>.</p>
+
+    <h2>🧠 How It Works</h2>
+    <ul>
+      <li><strong>The clock starts</strong> when a licensed examiner signs the emergency hold order.</li>
+      <li>Only <strong>non-holiday weekdays</strong> count—no weekends or legal holidays.</li>
+      <li>The 72-hour period runs <strong>hour-by-hour</strong>, not just during business hours.</li>
+    </ul>
+
+    <h2>📅 Example</h2>
+    <div class="example">
+      <p><strong>Hold starts Friday at 6:00 PM</strong></p>
+      <ul>
+        <li>Friday 6 PM to midnight = 6 hours</li>
+        <li>Saturday–Sunday = 0 hours (excluded)</li>
+        <li>Monday = +24 hours (now at 30)</li>
+        <li>Tuesday = +24 hours (54 total)</li>
+        <li>Wednesday = +18 hours → hold ends <strong>Wednesday at 12:00 PM</strong></li>
+      </ul>
+    </div>
+
+    <h2>🛠️ Calculate Hold End Time</h2>
+    <label for="start">Enter hold start date & time:</label>
+    <input type="datetime-local" id="start" />
+    <button onclick="calculateHoldEnd()">Calculate Hold End</button>
+
+    <div class="result" id="output"></div>
+
+    <p><small>This page is for informational purposes only. Always consult legal or medical professionals for actual decisions.</small></p>
+  </main>
+
+  <script>
+    const HOLIDAYS_2025 = [
+      '2025-01-01', '2025-01-20', '2025-02-17',
+      '2025-05-26', '2025-07-04', '2025-09-01',
+      '2025-11-11', '2025-11-27', '2025-12-25'
+    ];
+
+    function isHoliday(date) {
+      const iso = date.toISOString().split('T')[0];
+      return HOLIDAYS_2025.includes(iso);
+    }
+
+    function isBusinessDay(date) {
+      const day = date.getDay();
+      return day !== 0 && day !== 6 && !isHoliday(date);
+    }
+
+    function cloneDate(date) {
+      return new Date(date.getTime());
+    }
+
+    function getRecommendedDischargeWindow(endTime) {
+      const hour = endTime.getHours();
+      const dateStr = endTime.toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' });
+
+      let primary, backup;
+
+      if (hour < 9) {
+        primary = `Morning of ${dateStr} (9:00 AM – 12:00 PM)`;
+        backup = `Afternoon of ${getPreviousBusinessDate(endTime).toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' })} (1:00 PM – 5:00 PM)`;
+      } else if (hour < 13) {
+        primary = `Morning of ${dateStr} (9:00 AM – 12:00 PM)`;
+        backup = `Afternoon of ${getPreviousBusinessDate(endTime).toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' })} (1:00 PM – 5:00 PM)`;
+      } else if (hour < 17) {
+        primary = `Afternoon of ${dateStr} (1:00 PM – 5:00 PM)`;
+        backup = `Morning of ${dateStr} (9:00 AM – 12:00 PM)`;
+      } else {
+        primary = `Afternoon of ${dateStr} (1:00 PM – 5:00 PM)`;
+        backup = `Morning of ${dateStr} (9:00 AM – 12:00 PM)`;
+      }
+
+      return { primary, backup };
+    }
+
+    function getPreviousBusinessDate(date) {
+      const d = cloneDate(date);
+      do {
+        d.setDate(d.getDate() - 1);
+      } while (!isBusinessDay(d));
+      return d;
+    }
+
+    function calculateHoldEnd() {
+      const startInput = document.getElementById("start").value;
+      const output = document.getElementById("output");
+      output.innerHTML = "";
+
+      if (!startInput) {
+        output.innerHTML = "<p>Please enter a valid start date and time.</p>";
+        return;
+      }
+
+      let current = new Date(startInput);
+      let hoursRemaining = 72;
+      const breakdown = [];
+
+      while (hoursRemaining > 0) {
+        if (isBusinessDay(current)) {
+          const endOfDay = new Date(current);
+          endOfDay.setHours(23, 59, 59, 999);
+
+          let availableHours = (endOfDay - current) / (1000 * 60 * 60);
+          if (availableHours >= hoursRemaining) {
+            breakdown.push(`✔ ${current.toLocaleString()} — Counted ${hoursRemaining.toFixed(2)} hour(s)`);
+            current.setHours(current.getHours() + hoursRemaining);
+            hoursRemaining = 0;
+          } else {
+            breakdown.push(`✔ ${current.toLocaleString()} — Counted ${availableHours.toFixed(2)} hour(s)`);
+            current = new Date(endOfDay);
+            current.setHours(0, 0, 0, 0);
+            current.setDate(current.getDate() + 1);
+            hoursRemaining -= availableHours;
+          }
+        } else {
+          breakdown.push(`✖ ${current.toLocaleDateString()} — Skipped (weekend or holiday)`);
+          current.setDate(current.getDate() + 1);
+          current.setHours(0, 0, 0, 0);
+        }
+      }
+
+      const legalEnd = current;
+      const rec = getRecommendedDischargeWindow(legalEnd);
+
+      output.innerHTML = `
+        <h3>🕒 Legal End of Hold:</h3>
+        <p><strong>${legalEnd.toLocaleString()}</strong></p>
+
+        <h3>✅ Recommended Discharge:</h3>
+        <ul>
+          <li><strong>Primary:</strong> ${rec.primary}</li>
+          <li><strong>Backup:</strong> ${rec.backup}</li>
+        </ul>
+
+        <details>
+          <summary><strong>ℹ️ Why two discharge windows?</strong></summary>
+          <p>Discharge windows reflect typical hospital workflows. We recommend planning discharge before the legal hold expires, ideally during business hours to allow for coordination with social work, family, and transport. The backup window offers flexibility if the primary timing becomes impractical. The hold can always be terminated early.</p>
+        </details>
+
+        <h3>📘 Day-by-Day Breakdown:</h3>
+        <ul><li>${breakdown.join("</li><li>")}</li></ul>
+      `;
+    }
+  </script>
+</body>
+</html>
